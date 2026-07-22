@@ -19,3 +19,19 @@ exports.createVehicle = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getAllVehicles = async (req, res, next) => {
+  try {
+    const vehicles = await Vehicle.find().sort({ createdAt: -1 });
+
+    res.status(200).json({
+      status: 'success',
+      results: vehicles.length,
+      data: {
+        vehicles
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};

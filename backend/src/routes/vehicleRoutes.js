@@ -6,12 +6,14 @@ const { restrictToAdmin } = require('../middleware/adminMiddleware');
 const { validate } = require('../middleware/validateMiddleware');
 const { createVehicleSchema } = require('../validators/vehicleValidator');
 
-router.post(
-  '/',
-  protect,
-  restrictToAdmin,
-  validate(createVehicleSchema),
-  vehicleController.createVehicle
-);
+router
+  .route('/')
+  .get(vehicleController.getAllVehicles)
+  .post(
+    protect,
+    restrictToAdmin,
+    validate(createVehicleSchema),
+    vehicleController.createVehicle
+  );
 
 module.exports = router;

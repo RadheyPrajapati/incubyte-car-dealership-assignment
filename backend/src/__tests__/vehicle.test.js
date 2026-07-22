@@ -5,7 +5,7 @@ const User = require('../models/User');
 const Vehicle = require('../models/Vehicle');
 const app = require('../app');
 
-describe('Vehicle Integration Tests - POST /api/vehicles', () => {
+describe('Vehicle Integration Tests', () => {
   let adminToken;
   let userToken;
   let adminId;
@@ -88,10 +88,10 @@ describe('Vehicle Integration Tests - POST /api/vehicles', () => {
       jest.spyOn(User, 'findById').mockResolvedValueOnce(mockAdminDoc);
 
       const invalidPayload = {
-        make: '', // empty make
+        make: '',
         model: 'Mustang',
-        year: 1800, // year < 1900
-        price: -500 // negative price
+        year: 1800,
+        price: -500
       };
 
       const response = await request(app)
@@ -101,6 +101,48 @@ describe('Vehicle Integration Tests - POST /api/vehicles', () => {
 
       expect(response.statusCode).toBe(400);
       expect(response.body).toHaveProperty('status', 'fail');
+    });
+  });
+
+  describe('GET /api/vehicles', () => {
+    it('should return HTTP 200 OK with a list of vehicles sorted by creation date descending', async () => {
+      const mockVehicles = [
+        {
+          _id: new mongoose.Types.ObjectId(),
+          make: 'Tesla',
+          model: 'Model Y',
+          year: 2024,
+          category: 'Electric',
+          price: 45000,
+          createdAt: new Date('2026-07-22T10:00:00Z')
+        },
+        {
+          _id: new mongoose.Types.ObjectId(),
+          make: 'Toyota',
+          model: 'RAV4',
+          year: 2023,
+          category: 'SUV',
+          price: 28000,
+          createdAt: new Date('2026-07-20T10:00:00Z')
+        }
+      ];
+
+      // Mock chainable Vehicle.find().sort({ createdAt: -1 })
+      const mockQuery = {
+        sort: jest.fn().mockResolvedValue(mockVehicles)
+      };
+      jest.spyOn(Vehicle, 'find').mockReturnValue(mockQuery);
+
+      const response = await request(app).get('/api/vehicles');
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toHaveProperty('status', 'success');
+      expect(response.body).toHaveProperty('results', 2);
+      expect(response.body.data).toHaveProperty('vehicles');
+      expect(Array.isArray(response.body.data.vehicles)).toBe(true);
+      expect(response.body.data.vehicles.length).toBe(2);
+      expect(response.body.data.vehicles[0].make).toBe('Tesla');
+      expect(mockQuery.sort).toHaveBeenCalledWith({ createdAt: -1 });
     });
   });
 });
