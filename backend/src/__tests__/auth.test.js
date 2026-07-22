@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const app = require('../app');
 
-describe('Auth Integration Tests - POST /api/auth/register', () => {
+describe('Auth Integration Tests', () => {
   beforeAll(() => {
     mongoose.set('bufferCommands', false);
   });
@@ -51,7 +51,6 @@ describe('Auth Integration Tests - POST /api/auth/register', () => {
     it('should return HTTP 400 Bad Request when missing required fields', async () => {
       const incompleteUser = {
         email: 'missingname@dealership.com'
-        // missing name and password
       };
 
       const response = await request(app)
@@ -69,7 +68,6 @@ describe('Auth Integration Tests - POST /api/auth/register', () => {
         password: 'Password123!'
       };
 
-      // Mock findOne to return existing user document
       jest.spyOn(User, 'findOne').mockResolvedValueOnce({
         _id: new mongoose.Types.ObjectId(),
         name: existingUser.name,
@@ -84,6 +82,102 @@ describe('Auth Integration Tests - POST /api/auth/register', () => {
       expect(response.statusCode).toBe(400);
       expect(response.body).toHaveProperty('status', 'fail');
       expect(response.body.message).toMatch(/already registered|already exists|duplicate/i);
+    });
+  });
+
+  describe('POST /api/auth/login', () => {
+    it('should return HTTP 200 OK with a JWT token and user profile for valid credentials', async () => {
+      const loginCredentials = {
+        email: 'user@dealership.com',
+        password: 'Password123!'
+      };
+
+      const mockUserDoc = {
+        _id: new mongoose.Types.ObjectId(),
+        name: 'Test User',
+        email: loginCredentials.email,
+        role: 'USER',
+        password: 'hashedPassword',
+        comparePassword: jest.fn().mockResolvedValue(true),
+        toObject: function () {
+          return {
+            _id: this._id,
+            name: this.name,
+            email: this.email,
+            role: this.role
+          };
+        }
+      };
+
+      // Mock chainable Query object returned by User.findOne().select('+password')
+      const mockQuery = {
+        select: jest.fn().mockResolvedValue(mockUserDoc)
+      };
+      jest.spyOn(User, 'findOne').mockReturnValue(mockQuery);
+
+      const response = await request(app)
+        .post('/api/auth/login')
+        .send(loginCredentials);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toHaveProperty('status', 'success');
+      expect(response.body).toHaveProperty('token');
+      expect(response.body.data).toHaveProperty('user');
+      expect(response.body.data.user.email).toBe(loginCredentials.email);
+      expect(response.body.data.user).not.toHaveProperty('password');
+      expect(mockUserDoc.comparePassword).toHaveBeenCalledWith(loginCredentials.password);
+    });
+
+    it('should return HTTP 400 Bad Request when email or password is missing', async () => {
+      const response = await request(app)
+        .post('/api/auth/login')
+        .send({ email: 'user@dealership.com' });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body).toHaveProperty('status', 'fail');
+    });
+
+    it('should return HTTP 401 Unauthorized for non-existent email', async () => {
+      const mockQuery = {
+        select: jest.fn().mockResolvedValue(null)
+      };
+      jest.spyOn(User, 'findOne').mockReturnValue(mockQuery);
+
+      const response = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: 'nonexistent@dealership.com',
+          password: 'Password123!'
+        });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.body).toHaveProperty('status', 'fail');
+      expect(response.body.message).toMatch(/invalid email or password/i);
+    });
+
+    it('should return HTTP 401 Unauthorized for incorrect password', async () => {
+      const mockUserDoc = {
+        _id: new mongoose.Types.ObjectId(),
+        email: 'user@dealership.com',
+        password: 'hashedPassword',
+        comparePassword: jest.fn().mockResolvedValue(false)
+      };
+
+      const mockQuery = {
+        select: jest.fn().mockResolvedValue(mockUserDoc)
+      };
+      jest.spyOn(User, 'findOne').mockReturnValue(mockQuery);
+
+      const response = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: 'user@dealership.com',
+          password: 'WrongPassword123!'
+        });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.body).toHaveProperty('status', 'fail');
+      expect(response.body.message).toMatch(/invalid email or password/i);
     });
   });
 });

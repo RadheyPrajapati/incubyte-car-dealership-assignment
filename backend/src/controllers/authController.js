@@ -61,7 +61,54 @@ exports.register = async (req, res, next) => {
         message: error.message || 'Validation error'
       });
     }
-    console.error('Registration error:', error);
+    next(error);
+  }
+};
+
+exports.login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    // 1) Validate required credentials
+    if (!email || !password) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Please provide email and password'
+      });
+    }
+
+    // 2) Check if user exists & fetch hidden password field
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+
+    // 3) Verify user existence and password match
+    if (!user || !(await user.comparePassword(password))) {
+      return res.status(401).json({
+        status: 'fail',
+        message: 'Invalid email or password'
+      });
+    }
+
+    // 4) Generate JWT token
+    const token = signToken(user._id, user.role);
+
+    // 5) Prepare sanitized user profile (without password)
+    const userObj = typeof user.toObject === 'function' ? user.toObject() : { ...user };
+    delete userObj.password;
+
+    res.status(200).json({
+      status: 'success',
+      token,
+      data: {
+        user: userObj
+      }
+    });
+  } catch (error) {
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        status: 'fail',
+        message: error.message
+      });
+    }
     next(error);
   }
 };
