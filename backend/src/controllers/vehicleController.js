@@ -1,4 +1,7 @@
+const mongoose = require('mongoose');
 const Vehicle = require('../models/Vehicle');
+
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 exports.createVehicle = async (req, res, next) => {
   try {
@@ -88,6 +91,80 @@ exports.searchVehicles = async (req, res, next) => {
       }
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateVehicle = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        status: 'fail',
+        message: `Invalid ID format: ${id}`
+      });
+    }
+
+    const vehicle = await Vehicle.findByIdAndUpdate(id, req.body, {
+      new: true,
+      runValidators: true
+    });
+
+    if (!vehicle) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'No vehicle found with that ID'
+      });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        vehicle
+      }
+    });
+  } catch (error) {
+    if (error.name === 'ValidationError' || error.name === 'CastError') {
+      return res.status(400).json({
+        status: 'fail',
+        message: error.message
+      });
+    }
+    next(error);
+  }
+};
+
+exports.deleteVehicle = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        status: 'fail',
+        message: `Invalid ID format: ${id}`
+      });
+    }
+
+    const vehicle = await Vehicle.findByIdAndDelete(id);
+
+    if (!vehicle) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'No vehicle found with that ID'
+      });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: null,
+      message: 'Vehicle deleted successfully'
+    });
+  } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        status: 'fail',
+        message: error.message
+      });
+    }
     next(error);
   }
 };

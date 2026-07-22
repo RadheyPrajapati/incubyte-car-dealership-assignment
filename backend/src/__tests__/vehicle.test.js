@@ -146,7 +146,7 @@ describe('Vehicle Integration Tests', () => {
   });
 
   describe('GET /api/vehicles/search', () => {
-    it('should dynamically search vehicles by case-insensitive make, model, category, and price range (minPrice, maxPrice)', async () => {
+    it('should dynamically search vehicles by case-insensitive make, model, category, and price range', async () => {
       const mockSearchResults = [
         {
           _id: new mongoose.Types.ObjectId(),
@@ -171,7 +171,6 @@ describe('Vehicle Integration Tests', () => {
       expect(response.body).toHaveProperty('results', 1);
       expect(response.body.data.vehicles[0].make).toBe('Toyota');
 
-      // Verify dynamic query construction with case-insensitive regex for make and model
       const expectedFilter = {
         make: { $regex: 'toyota', $options: 'i' },
         model: { $regex: 'camry', $options: 'i' },
@@ -196,6 +195,129 @@ describe('Vehicle Integration Tests', () => {
       expect(response.body).toHaveProperty('status', 'success');
       expect(response.body).toHaveProperty('results', 0);
       expect(response.body.data.vehicles).toEqual([]);
+    });
+  });
+
+  describe('PUT /api/vehicles/:id', () => {
+    const validVehicleId = new mongoose.Types.ObjectId().toString();
+    const updateData = { price: 34000, quantity: 2 };
+
+    it('should return HTTP 200 OK and updated vehicle when Admin updates a valid vehicle ID', async () => {
+      const mockAdminDoc = { _id: adminId, role: 'ADMIN', name: 'Admin User' };
+      const updatedVehicle = { _id: validVehicleId, make: 'Ford', model: 'Mustang', price: 34000, quantity: 2 };
+
+      jest.spyOn(User, 'findById').mockResolvedValueOnce(mockAdminDoc);
+      jest.spyOn(Vehicle, 'findByIdAndUpdate').mockResolvedValueOnce(updatedVehicle);
+
+      const response = await request(app)
+        .put(`/api/vehicles/${validVehicleId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(updateData);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toHaveProperty('status', 'success');
+      expect(response.body.data.vehicle.price).toBe(34000);
+    });
+
+    it('should return HTTP 404 Not Found when Admin updates a non-existent vehicle ID', async () => {
+      const mockAdminDoc = { _id: adminId, role: 'ADMIN', name: 'Admin User' };
+      jest.spyOn(User, 'findById').mockResolvedValueOnce(mockAdminDoc);
+      jest.spyOn(Vehicle, 'findByIdAndUpdate').mockResolvedValueOnce(null);
+
+      const response = await request(app)
+        .put(`/api/vehicles/${validVehicleId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(updateData);
+
+      expect(response.statusCode).toBe(404);
+      expect(response.body).toHaveProperty('status', 'fail');
+      expect(response.body.message).toMatch(/no vehicle found/i);
+    });
+
+    it('should return HTTP 403 Forbidden when a non-admin user attempts to update a vehicle', async () => {
+      const mockUserDoc = { _id: userId, role: 'USER', name: 'Standard User' };
+      jest.spyOn(User, 'findById').mockResolvedValueOnce(mockUserDoc);
+
+      const response = await request(app)
+        .put(`/api/vehicles/${validVehicleId}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send(updateData);
+
+      expect(response.statusCode).toBe(403);
+      expect(response.body).toHaveProperty('status', 'fail');
+    });
+
+    it('should return HTTP 400 Bad Request when an invalid MongoDB ObjectID format is provided', async () => {
+      const mockAdminDoc = { _id: adminId, role: 'ADMIN', name: 'Admin User' };
+      jest.spyOn(User, 'findById').mockResolvedValueOnce(mockAdminDoc);
+
+      const response = await request(app)
+        .put('/api/vehicles/invalid-objectid-string')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(updateData);
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body).toHaveProperty('status', 'fail');
+      expect(response.body.message).toMatch(/invalid id/i);
+    });
+  });
+
+  describe('DELETE /api/vehicles/:id', () => {
+    const validVehicleId = new mongoose.Types.ObjectId().toString();
+
+    it('should return HTTP 200 OK when Admin deletes a valid vehicle ID', async () => {
+      const mockAdminDoc = { _id: adminId, role: 'ADMIN', name: 'Admin User' };
+      const deletedVehicle = { _id: validVehicleId, make: 'Ford', model: 'Mustang' };
+
+      jest.spyOn(User, 'findById').mockResolvedValueOnce(mockAdminDoc);
+      jest.spyOn(Vehicle, 'findByIdAndDelete').mockResolvedValueOnce(deletedVehicle);
+
+      const response = await request(app)
+        .delete(`/api/vehicles/${validVehicleId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toHaveProperty('status', 'success');
+      expect(response.body.data).toBeNull();
+    });
+
+    it('should return HTTP 404 Not Found when Admin deletes a non-existent vehicle ID', async () => {
+      const mockAdminDoc = { _id: adminId, role: 'ADMIN', name: 'Admin User' };
+      jest.spyOn(User, 'findById').mockResolvedValueOnce(mockAdminDoc);
+      jest.spyOn(Vehicle, 'findByIdAndDelete').mockResolvedValueOnce(null);
+
+      const response = await request(app)
+        .delete(`/api/vehicles/${validVehicleId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.statusCode).toBe(404);
+      expect(response.body).toHaveProperty('status', 'fail');
+      expect(response.body.message).toMatch(/no vehicle found/i);
+    });
+
+    it('should return HTTP 403 Forbidden when a non-admin user attempts to delete a vehicle', async () => {
+      const mockUserDoc = { _id: userId, role: 'USER', name: 'Standard User' };
+      jest.spyOn(User, 'findById').mockResolvedValueOnce(mockUserDoc);
+
+      const response = await request(app)
+        .delete(`/api/vehicles/${validVehicleId}`)
+        .set('Authorization', `Bearer ${userToken}`);
+
+      expect(response.statusCode).toBe(403);
+      expect(response.body).toHaveProperty('status', 'fail');
+    });
+
+    it('should return HTTP 400 Bad Request when an invalid MongoDB ObjectID format is provided', async () => {
+      const mockAdminDoc = { _id: adminId, role: 'ADMIN', name: 'Admin User' };
+      jest.spyOn(User, 'findById').mockResolvedValueOnce(mockAdminDoc);
+
+      const response = await request(app)
+        .delete('/api/vehicles/invalid-objectid-string')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body).toHaveProperty('status', 'fail');
+      expect(response.body.message).toMatch(/invalid id/i);
     });
   });
 });

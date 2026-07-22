@@ -18,4 +18,9 @@ router
     vehicleController.createVehicle
   );
 
+router
+  .route('/:id')
+  .put(protect, restrictToAdmin, vehicleController.updateVehicle)
+  .delete(protect, restrictToAdmin, vehicleController.deleteVehicle);
+
 module.exports = router;

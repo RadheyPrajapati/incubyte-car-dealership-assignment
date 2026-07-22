@@ -34,10 +34,17 @@ app.use((req, res, next) => {
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-  const statusCode = err.statusCode || 500;
+  let statusCode = err.statusCode || 500;
+  let message = err.message || 'Internal Server Error';
+
+  if (err.name === 'CastError') {
+    statusCode = 400;
+    message = `Invalid ${err.path || 'ID'} format: ${err.value}`;
+  }
+
   res.status(statusCode).json({
-    status: 'error',
-    message: err.message || 'Internal Server Error',
+    status: statusCode >= 500 ? 'error' : 'fail',
+    message,
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });
