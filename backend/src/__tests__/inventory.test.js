@@ -6,19 +6,23 @@ const Vehicle = require('../models/Vehicle');
 const Purchase = require('../models/Purchase');
 const app = require('../app');
 
-describe('Inventory Integration Tests - Vehicle Purchase Flow', () => {
+describe('Inventory Integration Tests - Vehicle Purchase & Restock Flow', () => {
   let userToken;
+  let adminToken;
   let userId;
+  let adminId;
   let vehicleId;
 
   beforeAll(() => {
     mongoose.set('bufferCommands', false);
 
     userId = new mongoose.Types.ObjectId().toString();
+    adminId = new mongoose.Types.ObjectId().toString();
     vehicleId = new mongoose.Types.ObjectId().toString();
 
     const secret = process.env.JWT_SECRET || 'supersecret_dealership_jwt_key_2026';
     userToken = jwt.sign({ id: userId, role: 'USER' }, secret);
+    adminToken = jwt.sign({ id: adminId, role: 'ADMIN' }, secret);
   });
 
   afterEach(() => {
@@ -115,6 +119,74 @@ describe('Inventory Integration Tests - Vehicle Purchase Flow', () => {
       expect(response.statusCode).toBe(404);
       expect(response.body).toHaveProperty('status', 'fail');
       expect(response.body.message).toMatch(/vehicle not found/i);
+    });
+  });
+
+  describe('POST /api/vehicles/:id/restock', () => {
+    it('should allow Admin users to restock vehicle quantity and restore Available status (HTTP 200)', async () => {
+      const mockAdminDoc = { _id: adminId, name: 'Manager Admin', role: 'ADMIN' };
+      const mockDepletedVehicle = {
+        _id: vehicleId,
+        make: 'Toyota',
+        model: 'Corolla',
+        quantity: 0,
+        status: 'Out of Stock',
+        save: jest.fn().mockImplementation(async function () {
+          return this;
+        })
+      };
+
+      jest.spyOn(User, 'findById').mockResolvedValueOnce(mockAdminDoc);
+      jest.spyOn(Vehicle, 'findById').mockResolvedValueOnce(mockDepletedVehicle);
+
+      const response = await request(app)
+        .post(`/api/vehicles/${vehicleId}/restock`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ count: 5 });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toHaveProperty('status', 'success');
+      expect(response.body.data).toHaveProperty('vehicle');
+      expect(mockDepletedVehicle.quantity).toBe(5);
+      expect(mockDepletedVehicle.status).toBe('Available');
+      expect(mockDepletedVehicle.save).toHaveBeenCalled();
+    });
+
+    it('should return HTTP 403 Forbidden when a non-admin user attempts to restock', async () => {
+      const mockUserDoc = { _id: userId, name: 'Standard User', role: 'USER' };
+      jest.spyOn(User, 'findById').mockResolvedValueOnce(mockUserDoc);
+
+      const response = await request(app)
+        .post(`/api/vehicles/${vehicleId}/restock`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ count: 5 });
+
+      expect(response.statusCode).toBe(403);
+      expect(response.body).toHaveProperty('status', 'fail');
+      expect(response.body.message).toMatch(/admin/i);
+    });
+
+    it('should return HTTP 400 Bad Request for zero or negative restock amounts', async () => {
+      const mockAdminDoc = { _id: adminId, name: 'Manager Admin', role: 'ADMIN' };
+      jest.spyOn(User, 'findById').mockResolvedValueOnce(mockAdminDoc);
+
+      const responseZero = await request(app)
+        .post(`/api/vehicles/${vehicleId}/restock`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ count: 0 });
+
+      expect(responseZero.statusCode).toBe(400);
+      expect(responseZero.body).toHaveProperty('status', 'fail');
+      expect(responseZero.body.message).toMatch(/positive/i);
+
+      jest.spyOn(User, 'findById').mockResolvedValueOnce(mockAdminDoc);
+      const responseNegative = await request(app)
+        .post(`/api/vehicles/${vehicleId}/restock`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ count: -3 });
+
+      expect(responseNegative.statusCode).toBe(400);
+      expect(responseNegative.body).toHaveProperty('status', 'fail');
     });
   });
 });
