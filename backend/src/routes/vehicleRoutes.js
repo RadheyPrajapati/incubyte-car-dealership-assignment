@@ -6,6 +6,8 @@ const { restrictToAdmin } = require('../middleware/adminMiddleware');
 const { validate } = require('../middleware/validateMiddleware');
 const { createVehicleSchema } = require('../validators/vehicleValidator');
 
+router.get('/search', vehicleController.searchVehicles);
+
 router
   .route('/')
   .get(vehicleController.getAllVehicles)

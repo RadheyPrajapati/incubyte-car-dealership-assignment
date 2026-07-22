@@ -127,7 +127,6 @@ describe('Vehicle Integration Tests', () => {
         }
       ];
 
-      // Mock chainable Vehicle.find().sort({ createdAt: -1 })
       const mockQuery = {
         sort: jest.fn().mockResolvedValue(mockVehicles)
       };
@@ -143,6 +142,60 @@ describe('Vehicle Integration Tests', () => {
       expect(response.body.data.vehicles.length).toBe(2);
       expect(response.body.data.vehicles[0].make).toBe('Tesla');
       expect(mockQuery.sort).toHaveBeenCalledWith({ createdAt: -1 });
+    });
+  });
+
+  describe('GET /api/vehicles/search', () => {
+    it('should dynamically search vehicles by case-insensitive make, model, category, and price range (minPrice, maxPrice)', async () => {
+      const mockSearchResults = [
+        {
+          _id: new mongoose.Types.ObjectId(),
+          make: 'Toyota',
+          model: 'Camry',
+          year: 2024,
+          category: 'Sedan',
+          price: 27000
+        }
+      ];
+
+      const mockQuery = {
+        sort: jest.fn().mockResolvedValue(mockSearchResults)
+      };
+      const findSpy = jest.spyOn(Vehicle, 'find').mockReturnValue(mockQuery);
+
+      const response = await request(app)
+        .get('/api/vehicles/search?make=toyota&model=camry&category=Sedan&minPrice=20000&maxPrice=30000');
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toHaveProperty('status', 'success');
+      expect(response.body).toHaveProperty('results', 1);
+      expect(response.body.data.vehicles[0].make).toBe('Toyota');
+
+      // Verify dynamic query construction with case-insensitive regex for make and model
+      const expectedFilter = {
+        make: { $regex: 'toyota', $options: 'i' },
+        model: { $regex: 'camry', $options: 'i' },
+        category: 'Sedan',
+        price: { $gte: 20000, $lte: 30000 }
+      };
+
+      expect(findSpy).toHaveBeenCalledWith(expectedFilter);
+      expect(mockQuery.sort).toHaveBeenCalledWith({ createdAt: -1 });
+    });
+
+    it('should return empty results when no vehicles match query filters', async () => {
+      const mockQuery = {
+        sort: jest.fn().mockResolvedValue([])
+      };
+      jest.spyOn(Vehicle, 'find').mockReturnValue(mockQuery);
+
+      const response = await request(app)
+        .get('/api/vehicles/search?make=Ferrari');
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toHaveProperty('status', 'success');
+      expect(response.body).toHaveProperty('results', 0);
+      expect(response.body.data.vehicles).toEqual([]);
     });
   });
 });
