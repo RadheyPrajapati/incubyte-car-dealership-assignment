@@ -1,5 +1,6 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const app = require('../app');
 
@@ -109,7 +110,6 @@ describe('Auth Integration Tests', () => {
         }
       };
 
-      // Mock chainable Query object returned by User.findOne().select('+password')
       const mockQuery = {
         select: jest.fn().mockResolvedValue(mockUserDoc)
       };
@@ -178,6 +178,52 @@ describe('Auth Integration Tests', () => {
       expect(response.statusCode).toBe(401);
       expect(response.body).toHaveProperty('status', 'fail');
       expect(response.body.message).toMatch(/invalid email or password/i);
+    });
+  });
+
+  describe('GET /api/auth/me', () => {
+    it('should return HTTP 200 OK and current user profile when provided a valid Bearer token', async () => {
+      const userId = new mongoose.Types.ObjectId().toString();
+      const validToken = jwt.sign(
+        { id: userId, role: 'USER' },
+        process.env.JWT_SECRET || 'supersecret_dealership_jwt_key_2026'
+      );
+
+      const mockUserDoc = {
+        _id: userId,
+        name: 'Logged In User',
+        email: 'loggedin@dealership.com',
+        role: 'USER'
+      };
+
+      jest.spyOn(User, 'findById').mockResolvedValueOnce(mockUserDoc);
+
+      const response = await request(app)
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${validToken}`);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toHaveProperty('status', 'success');
+      expect(response.body.data).toHaveProperty('user');
+      expect(response.body.data.user.email).toBe('loggedin@dealership.com');
+    });
+
+    it('should return HTTP 401 Unauthorized when Authorization header is missing', async () => {
+      const response = await request(app).get('/api/auth/me');
+
+      expect(response.statusCode).toBe(401);
+      expect(response.body).toHaveProperty('status', 'fail');
+      expect(response.body.message).toMatch(/not authorized|no token/i);
+    });
+
+    it('should return HTTP 401 Unauthorized when provided an invalid Bearer token', async () => {
+      const response = await request(app)
+        .get('/api/auth/me')
+        .set('Authorization', 'Bearer invalid_malformed_token_string');
+
+      expect(response.statusCode).toBe(401);
+      expect(response.body).toHaveProperty('status', 'fail');
+      expect(response.body.message).toMatch(/not authorized|invalid token/i);
     });
   });
 });

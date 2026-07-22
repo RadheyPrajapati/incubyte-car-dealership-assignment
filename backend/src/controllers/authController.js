@@ -112,3 +112,19 @@ exports.login = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getMe = async (req, res, next) => {
+  try {
+    const userObj = typeof req.user.toObject === 'function' ? req.user.toObject() : { ...req.user };
+    delete userObj.password;
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        user: userObj
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
