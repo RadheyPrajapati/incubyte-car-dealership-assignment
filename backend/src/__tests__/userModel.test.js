@@ -1,10 +1,9 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-// Requiring the User model which does not exist yet (TDD RED Phase)
 const User = require('../models/userModel');
 
-describe('User Model Unit Tests (TDD - Red Phase)', () => {
+describe('User Model Unit Tests (TDD - Refactor Phase)', () => {
   describe('User Validation & Role Defaulting', () => {
     it('should validate a complete user object and set default role to USER', () => {
       const userData = {
@@ -43,6 +42,11 @@ describe('User Model Unit Tests (TDD - Red Phase)', () => {
       expect(err).toBeDefined();
       expect(err.errors.email).toBeDefined();
     });
+
+    it('should set select: false on password schema field to exclude it from default queries', () => {
+      const passwordPath = User.schema.path('password');
+      expect(passwordPath.options.select).toBe(false);
+    });
   });
 
   describe('Password Hashing Pre-Save Hook & Helper Methods', () => {
@@ -54,7 +58,6 @@ describe('User Model Unit Tests (TDD - Red Phase)', () => {
         password: plainPassword
       });
 
-      // Execute pre-save middleware / hashing function on user document
       if (typeof user.hashPassword === 'function') {
         await user.hashPassword();
       }
