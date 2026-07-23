@@ -135,7 +135,7 @@ PASS src/__tests__/VehicleCard.test.jsx (3 tests)
 ---
 
 ## My AI Usage
-
+### Tool Used : Antigravity ( Gemini )
 ### AI Pair Programming Paradigm
 The entire Incubyte Car Dealership System was constructed using AI pair programming following strict Test-Driven Development (TDD) guidelines.
 
