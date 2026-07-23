@@ -8,13 +8,16 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
-        changeOrigin: true
-      }
-    }
+        changeOrigin: true,
+      },
+    },
+  },
+  preview: {
+    allowedHosts: ['incubyte-car-dealership-assignment-1.onrender.com'],
   },
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: './src/__tests__/setup.js'
-  }
+    setupFiles: './src/__tests__/setup.js',
+  },
 });
