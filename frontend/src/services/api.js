@@ -33,7 +33,8 @@ export const vehicleAPI = {
 
 export const inventoryAPI = {
   purchase: (id) => API.post(`/vehicles/${id}/purchase`),
-  restock: (id, count) => API.post(`/vehicles/${id}/restock`, { count })
+  restock: (id, count) => API.post(`/vehicles/${id}/restock`, { count }),
+  getMyPurchases: () => API.get('/vehicles/my-purchases')
 };
 
 export default API;

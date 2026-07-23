@@ -1,7 +1,7 @@
 # Incubyte Car Dealership System - Comprehensive Full-Stack Test Execution Report
 
-**Execution Timestamp**: 2026-07-23T12:42:00+05:30  
-**Overall Status**: 🟢 **PASSED (50 / 50 Tests Passed - 100% Pass Rate)**  
+**Execution Timestamp**: 2026-07-23T13:20:00+05:30  
+**Overall Status**: 🟢 **PASSED (52 / 52 Tests Passed - 100% Pass Rate)**  
 **Target Environment**: Windows (Node.js v22.15.0, NPM 10.9.2)
 
 ---
@@ -10,9 +10,9 @@
 
 | Test Suite Layer | Runner | Test Files / Suites | Total Tests | Passed | Failed | Status |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Backend API & Data Layer** | Jest v29.7.0 | 6 / 6 | 45 | 45 | 0 | 🟢 PASS |
+| **Backend API & Data Layer** | Jest v29.7.0 | 6 / 6 | 47 | 47 | 0 | 🟢 PASS |
 | **Frontend UI Layer** | Vitest v3.2.7 | 2 / 2 | 5 | 5 | 0 | 🟢 PASS |
-| **TOTAL** | — | **8 / 8** | **50** | **50** | **0** | 🟢 **PASS** |
+| **TOTAL** | — | **8 / 8** | **52** | **52** | **0** | 🟢 **PASS** |
 
 ---
 
@@ -21,16 +21,18 @@
 ### Summary
 - **Test Runner**: Jest (`jest --runInBand --detectOpenHandles`)
 - **Location**: `incubyte-car-dealership-assignment/backend/src/__tests__/`
-- **Result**: 45 Passed, 0 Failed (6 Test Suites)
+- **Result**: 47 Passed, 0 Failed (6 Test Suites)
 
 ### Breakdown by Test File
 
-#### 1. `inventory.test.js` — Vehicle Purchase & Restock Workflow
+#### 1. `inventory.test.js` — Vehicle Purchase, Restock & Ownership History Workflow
 *Path: [backend/src/__tests__/inventory.test.js](file:///C:/Users/Dell/Desktop/incubyte-car-dealership-assignment/backend/src/__tests__/inventory.test.js)*
 - 🟢 `POST /api/vehicles/:id/purchase` — should process purchase, decrease vehicle quantity by 1, and record a Purchase transaction (HTTP 200)
 - 🟢 `POST /api/vehicles/:id/purchase` — should return HTTP 400 Bad Request when attempting to purchase an out-of-stock vehicle (quantity === 0)
 - 🟢 `POST /api/vehicles/:id/purchase` — should return HTTP 401 Unauthorized when no Authorization header is provided
 - 🟢 `POST /api/vehicles/:id/purchase` — should return HTTP 404 Not Found when purchasing a non-existent vehicle ID
+- 🟢 `GET /api/vehicles/my-purchases` — should return HTTP 200 OK with list of purchases for the authenticated customer
+- 🟢 `GET /api/vehicles/my-purchases` — should return HTTP 401 Unauthorized when requesting my-purchases without auth header
 - 🟢 `POST /api/vehicles/:id/restock` — should allow Admin users to restock vehicle quantity and restore Available status (HTTP 200)
 - 🟢 `POST /api/vehicles/:id/restock` — should return HTTP 403 Forbidden when a non-admin user attempts to restock
 - 🟢 `POST /api/vehicles/:id/restock` — should return HTTP 400 Bad Request for zero or negative restock amounts
@@ -114,7 +116,4 @@
 
 ## Technical Audit & Verification Conclusion
 
-All **50 test cases** across backend API integration endpoints, Mongoose schema models, middleware, and React frontend components passed without any errors or warnings.
-
-- **Total Execution Time**: Backend (43.47s) + Frontend (27.35s)
-- **Zero Vulnerabilities / Clean Exit**
+All **52 test cases** across backend API integration endpoints, Mongoose schema models, middleware, and React frontend components passed without any errors or warnings.

@@ -62,6 +62,26 @@ exports.purchaseVehicle = async (req, res, next) => {
   }
 };
 
+exports.getMyPurchases = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+
+    const purchases = await Purchase.find({ user: userId })
+      .populate('vehicle')
+      .sort({ purchaseDate: -1 });
+
+    res.status(200).json({
+      status: 'success',
+      results: purchases.length,
+      data: {
+        purchases
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.restockVehicle = async (req, res, next) => {
   try {
     const { id } = req.params;

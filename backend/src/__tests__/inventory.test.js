@@ -122,6 +122,54 @@ describe('Inventory Integration Tests - Vehicle Purchase & Restock Flow', () => 
     });
   });
 
+  describe('GET /api/vehicles/my-purchases', () => {
+    it('should return HTTP 200 OK with list of purchases for the authenticated customer', async () => {
+      const mockUserDoc = { _id: userId, name: 'Buyer User', role: 'USER' };
+      const mockPurchases = [
+        {
+          _id: new mongoose.Types.ObjectId(),
+          user: userId,
+          vehicle: {
+            _id: vehicleId,
+            make: 'Porsche',
+            model: '911',
+            year: 2024,
+            price: 130000,
+            image: 'https://example.com/porsche.jpg'
+          },
+          quantity: 1,
+          totalPrice: 130000,
+          purchaseDate: new Date()
+        }
+      ];
+
+      const mockQuery = {
+        populate: jest.fn().mockReturnThis(),
+        sort: jest.fn().mockResolvedValue(mockPurchases)
+      };
+
+      jest.spyOn(User, 'findById').mockResolvedValueOnce(mockUserDoc);
+      jest.spyOn(Purchase, 'find').mockReturnValue(mockQuery);
+
+      const response = await request(app)
+        .get('/api/vehicles/my-purchases')
+        .set('Authorization', `Bearer ${userToken}`);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toHaveProperty('status', 'success');
+      expect(response.body).toHaveProperty('results', 1);
+      expect(response.body.data).toHaveProperty('purchases');
+      expect(response.body.data.purchases[0].vehicle.make).toBe('Porsche');
+    });
+
+    it('should return HTTP 401 Unauthorized when requesting my-purchases without auth header', async () => {
+      const response = await request(app).get('/api/vehicles/my-purchases');
+
+      expect(response.statusCode).toBe(401);
+      expect(response.body).toHaveProperty('status', 'fail');
+    });
+  });
+
   describe('POST /api/vehicles/:id/restock', () => {
     it('should allow Admin users to restock vehicle quantity and restore Available status (HTTP 200)', async () => {
       const mockAdminDoc = { _id: adminId, name: 'Manager Admin', role: 'ADMIN' };

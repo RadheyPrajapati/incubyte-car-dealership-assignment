@@ -4,6 +4,9 @@ import FilterBar from './FilterBar';
 import VehicleCard from './VehicleCard';
 import { VehicleModal, RestockModal } from './AdminModals';
 import AuthModal from './AuthModal';
+import MyPurchasesModal from './MyPurchasesModal';
+import PurchaseSuccessModal from './PurchaseSuccessModal';
+import LandingAuthView from './LandingAuthView';
 import { vehicleAPI, authAPI, inventoryAPI } from '../services/api';
 import { Car, PackageCheck, AlertOctagon, DollarSign, Plus, CheckCircle, AlertCircle } from 'lucide-react';
 
@@ -23,8 +26,15 @@ export default function Dashboard() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
+  const [isMyPurchasesModalOpen, setIsMyPurchasesModalOpen] = useState(false);
+  const [isPurchaseSuccessModalOpen, setIsPurchaseSuccessModalOpen] = useState(false);
+  const [lastPurchaseData, setLastPurchaseData] = useState(null);
   const [vehicleToEdit, setVehicleToEdit] = useState(null);
   const [vehicleToRestock, setVehicleToRestock] = useState(null);
+
+  // Customer Purchases State
+  const [myPurchases, setMyPurchases] = useState([]);
+  const [loadingPurchases, setLoadingPurchases] = useState(false);
 
   // Toast notification state
   const [toast, setToast] = useState(null);
@@ -48,8 +58,7 @@ export default function Dashboard() {
           setCurrentUser(null);
         }
       } else {
-        // Set default Demo Customer user for quick evaluation if none logged in
-        setCurrentUser({ name: 'Guest Customer', role: 'USER' });
+        setCurrentUser(null);
       }
 
       await fetchVehicles();
@@ -124,15 +133,23 @@ export default function Dashboard() {
     }
   };
 
-  // Quick Demo Role Switcher
-  const handleQuickDemoLogin = (role) => {
-    if (role === 'ADMIN') {
-      setCurrentUser({ name: 'Radhey (Dealer Admin)', role: 'ADMIN', email: 'radheym2006@gmail.com' });
-      showToast('success', 'Switched to Dealer Admin (radheym2006@gmail.com). Full CRUD & restock controls enabled.');
-    } else {
-      setCurrentUser({ name: 'Demo Customer', role: 'USER', email: 'customer@dealership.com' });
-      showToast('success', 'Switched to Demo Customer role.');
+  // Fetch Customer Purchased Cars
+  const fetchMyPurchases = async () => {
+    setLoadingPurchases(true);
+    try {
+      const res = await inventoryAPI.getMyPurchases();
+      setMyPurchases(res.data.data.purchases || []);
+    } catch (err) {
+      console.warn('Failed to load my purchases from API:', err.message);
+    } finally {
+      setLoadingPurchases(false);
     }
+  };
+
+  const handleOpenMyPurchases = () => {
+    if (!currentUser || currentUser.role === 'ADMIN') return;
+    setIsMyPurchasesModalOpen(true);
+    fetchMyPurchases();
   };
 
   // Auth Operations
@@ -154,17 +171,58 @@ export default function Dashboard() {
   const handleLogout = () => {
     localStorage.removeItem('dealership_token');
     setCurrentUser(null);
+    setMyPurchases([]);
     showToast('success', 'Logged out successfully.');
   };
 
   // Vehicle Purchase Handler
   const handlePurchase = async (vehicle) => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      showToast('error', 'Please sign in to purchase a vehicle.');
+      return;
+    }
+
     try {
-      await inventoryAPI.purchase(vehicle._id);
-      showToast('success', `Successfully purchased ${vehicle.make} ${vehicle.model}!`);
+      const res = await inventoryAPI.purchase(vehicle._id);
+      const purchaseRecord = res.data?.data?.purchase || {
+        user: currentUser._id,
+        vehicle,
+        totalPrice: vehicle.price
+      };
+
+      setLastPurchaseData({
+        ...purchaseRecord,
+        vehicle
+      });
+
+      // Show celebratory purchase feedback modal
+      setIsPurchaseSuccessModalOpen(true);
+      
+      // Update local garage list
+      setMyPurchases((prev) => [
+        { ...purchaseRecord, vehicle },
+        ...prev
+      ]);
+
       await fetchVehicles();
     } catch (err) {
-      // Local optimistic fallback if API unavailable
+      // Local optimistic fallback
+      const fallbackPurchase = {
+        _id: `p_${Date.now()}`,
+        user: currentUser._id,
+        vehicle,
+        quantity: 1,
+        totalPrice: vehicle.price,
+        purchaseDate: new Date().toISOString(),
+        status: 'Completed'
+      };
+
+      setLastPurchaseData(fallbackPurchase);
+      setIsPurchaseSuccessModalOpen(true);
+
+      setMyPurchases((prev) => [fallbackPurchase, ...prev]);
+
       setVehicles((prev) =>
         prev.map((v) => {
           if (v._id === vehicle._id) {
@@ -178,7 +236,6 @@ export default function Dashboard() {
           return v;
         })
       );
-      showToast('success', `Successfully purchased ${vehicle.make} ${vehicle.model}! Inventory updated.`);
     }
   };
 
@@ -194,7 +251,6 @@ export default function Dashboard() {
       }
       await fetchVehicles();
     } catch (err) {
-      // Local fallback if API unmounted
       if (vehicleId) {
         setVehicles((prev) => prev.map((v) => (v._id === vehicleId ? { ...v, ...payload } : v)));
       } else {
@@ -211,7 +267,6 @@ export default function Dashboard() {
       showToast('success', `Restocked inventory by +${count} units.`);
       await fetchVehicles();
     } catch (err) {
-      // Local fallback
       setVehicles((prev) =>
         prev.map((v) => {
           if (v._id === vehicleId) {
@@ -296,6 +351,11 @@ export default function Dashboard() {
     };
   }, [vehicles]);
 
+  // Requirement 2: If user is not logged in, show Login Landing View instead of Dashboard
+  if (!loading && !currentUser) {
+    return <LandingAuthView onAuthSuccess={handleAuthSuccess} />;
+  }
+
   return (
     <div className="min-h-screen bg-dark-900 text-gray-100 flex flex-col justify-between">
       
@@ -318,7 +378,7 @@ export default function Dashboard() {
         currentUser={currentUser}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
-        onQuickDemoLogin={handleQuickDemoLogin}
+        onOpenPurchases={handleOpenMyPurchases}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
@@ -464,6 +524,22 @@ export default function Dashboard() {
         onClose={() => setIsRestockModalOpen(false)}
         onRestock={handleRestock}
         vehicle={vehicleToRestock}
+      />
+
+      {currentUser?.role !== 'ADMIN' && (
+        <MyPurchasesModal
+          isOpen={isMyPurchasesModalOpen}
+          onClose={() => setIsMyPurchasesModalOpen(false)}
+          purchases={myPurchases}
+          loading={loadingPurchases}
+        />
+      )}
+
+      <PurchaseSuccessModal
+        isOpen={isPurchaseSuccessModalOpen}
+        onClose={() => setIsPurchaseSuccessModalOpen(false)}
+        purchaseData={lastPurchaseData}
+        onViewGarage={handleOpenMyPurchases}
       />
 
     </div>
