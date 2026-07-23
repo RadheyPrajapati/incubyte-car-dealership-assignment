@@ -9,7 +9,7 @@ Below are the live production deployment URLs and API endpoint specifications fo
 | Service / Layer | Deployment Platform | Live Production URL | Health Check / Base Endpoint |
 | :--- | :--- | :--- | :--- |
 | **Frontend Web service** | Render | [Frontend_URL](https://incubyte-car-dealership-assignment-1.onrender.com/) | `/` |
-| **Backend REST API Service** | Render | [Backend_URL](https://incubyte-car-dealership-assignment.onrender.com) | 
+| **Backend REST API Service** | Render | [Backend_URL](https://incubyte-car-dealership-assignment.onrender.com) | `/api/health` |
 
 ---
 
