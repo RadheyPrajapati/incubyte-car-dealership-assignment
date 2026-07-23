@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create configured Axios instance pointing to backend REST API
 const API = axios.create({
-  baseURL: 'http://localhost:5000/api'
+  baseURL: 'https://incubyte-car-dealership-assignment.onrender.com/api'
 });
 
 // Request Interceptor: Automatically attach Bearer token from localStorage
